@@ -6,6 +6,8 @@
 #include <taihen.h>
 #include "rt_settings_xml.h"
 #include "rt_settings_runtime.h"
+#include "plugin_inventory.h"
+#include "plugin_compatibility.h"
 
 #define TAI_LIB_KERNEL 0xCAE9ACE6
 #define TAI_LIB_PAF_MISC 0x3D643CE8
@@ -34,6 +36,10 @@ static int g_page_hooks_ready = 0;
 static char g_root_xml[RT_SETTINGS_XML_BUFFER_SIZE];
 static char g_config[RT_CONFIG_CAPACITY];
 static unsigned short g_status_text[192];
+static unsigned short g_audit_text[192];
+static char g_audit_config[RT_CONFIG_CAPACITY];
+static rt_pi_inventory g_audit_inventory;
+static rt_pc_report g_audit_report;
 static int (*g_system_settings_button)(const char *id, int a2, void *a3);
 
 static int text_equal(const char *a, const char *b) {
@@ -151,6 +157,93 @@ static void refresh_runtime_status(void) {
     else
         status_to_wide("CONFIG INSPECTION INVALID");
 }
+static size_t append_ascii(char *dst, size_t capacity, size_t used, const char *src) {
+    size_t i = 0;
+    if (!dst || !src || used >= capacity) return used;
+    while (src[i] && used + 1 < capacity) dst[used++] = src[i++];
+    dst[used] = '\\0';
+    return used;
+}
+static size_t append_number(char *dst, size_t capacity, size_t used, size_t value) {
+    char digits[24];
+    size_t count = 0;
+    do { digits[count++] = (char)('0' + (value % 10)); value /= 10; } while (value && count < sizeof(digits));
+    while (count && used + 1 < capacity) dst[used++] = digits[--count];
+    if (capacity) dst[used < capacity ? used : capacity - 1] = '\\0';
+    return used;
+}
+static void refresh_plugin_audit(void) {
+    SceIoStat st;
+    SceUID fd;
+    size_t total = 0, i, enabled_known = 0, enabled_unknown = 0, disabled = 0;
+    const char *enabled_ids[RT_PI_MAX_ENTRIES];
+    char message[192];
+    size_t used = 0;
+    int parsed;
+    if (sceIoGetstat(RT_CONFIG_PATH, &st) < 0 || st.st_size < 0 ||
+        (uint64_t)st.st_size > sizeof(g_audit_config)) {
+        status_to_wide("AUDIT UNAVAILABLE | taiHEN config missing or too large");
+        memcpy(g_audit_text, g_status_text, sizeof(g_audit_text));
+        return;
+    }
+    fd = sceIoOpen(RT_CONFIG_PATH, SCE_O_RDONLY, 0);
+    if (fd < 0) {
+        status_to_wide("AUDIT UNAVAILABLE | taiHEN config unreadable");
+        memcpy(g_audit_text, g_status_text, sizeof(g_audit_text));
+        return;
+    }
+    while (total < (size_t)st.st_size) {
+        int n = sceIoRead(fd, g_audit_config + total, (SceSize)((size_t)st.st_size - total));
+        if (n <= 0) { total = sizeof(g_audit_config) + 1; break; }
+        total += (size_t)n;
+    }
+    sceIoClose(fd);
+    if (total != (size_t)st.st_size) {
+        status_to_wide("AUDIT FAILED | incomplete taiHEN config read");
+        memcpy(g_audit_text, g_status_text, sizeof(g_audit_text));
+        return;
+    }
+    parsed = rt_pi_parse(g_audit_config, total, &g_audit_inventory);
+    if (parsed != RT_PI_OK) {
+        status_to_wide("AUDIT FAILED | inventory parser rejected config");
+        memcpy(g_audit_text, g_status_text, sizeof(g_audit_text));
+        return;
+    }
+    for (i = 0; i < g_audit_inventory.count; ++i) {
+        const rt_pi_entry *entry = &g_audit_inventory.entries[i];
+        if (!entry->enabled) { ++disabled; continue; }
+        if (!entry->known || !entry->plugin_id[0]) { ++enabled_unknown; continue; }
+        {
+            size_t j;
+            int duplicate = 0;
+            for (j = 0; j < enabled_known; ++j)
+                if (strcmp(enabled_ids[j], entry->plugin_id) == 0) { duplicate = 1; break; }
+            if (!duplicate) enabled_ids[enabled_known++] = entry->plugin_id;
+        }
+    }
+    if (rt_pc_evaluate(enabled_ids, enabled_known, &g_audit_report) != RT_PC_OK) {
+        status_to_wide("AUDIT FAILED | compatibility evaluation error");
+        memcpy(g_audit_text, g_status_text, sizeof(g_audit_text));
+        return;
+    }
+    message[0] = '\\0';
+    used = append_ascii(message, sizeof(message), used, "READ ONLY | ACTIVE ");
+    used = append_number(message, sizeof(message), used, enabled_known + enabled_unknown);
+    used = append_ascii(message, sizeof(message), used, " (KNOWN ");
+    used = append_number(message, sizeof(message), used, enabled_known);
+    used = append_ascii(message, sizeof(message), used, ") | DISABLED ");
+    used = append_number(message, sizeof(message), used, disabled);
+    used = append_ascii(message, sizeof(message), used, " | UNKNOWN ");
+    used = append_number(message, sizeof(message), used, enabled_unknown);
+    used = append_ascii(message, sizeof(message), used, " | BLOCK ");
+    used = append_number(message, sizeof(message), used, g_audit_report.blocking_count);
+    used = append_ascii(message, sizeof(message), used, " | REVIEW ");
+    used = append_number(message, sizeof(message), used, g_audit_report.review_count);
+    used = append_ascii(message, sizeof(message), used, " | MALFORMED ");
+    used = append_number(message, sizeof(message), used, g_audit_inventory.malformed_lines);
+    status_to_wide(message);
+    memcpy(g_audit_text, g_status_text, sizeof(g_audit_text));
+}
 static int rt_settings_button(const char *id, int a2, void *a3) {
     if (text_equal(id, "rt_manager_about")) {
         refresh_runtime_status();
@@ -168,13 +261,13 @@ static int plugin_functions_hook(void *a1, int a2, uint32_t *functions) {
     }
     return result;
 }
-static const unsigned short RT_STATUS_HINT[] =
+static const unsigned short RT_AUDIT_HINT[] =\n    {'S','c','a','n','s',' ','t','a','i','H','E','N',' ','p','l','u','g','i','n',' ','e','n','t','r','i','e','s',' ','a','n','d',' ','k','n','o','w','n',' ','c','o','n','f','l','i','c','t','s','.',' ', 'R','e','a','d','-','o','n','l','y',';',' ','n','o',' ','c','o','n','f','i','g',' ','c','h','a','n','g','e','s','. ',0};\nstatic const unsigned short RT_STATUS_HINT[] =
     {'C','h','e','c','k','s',' ','t','h','e',' ','l','i','v','e',' ','t','a','i','H','E','N',' ','e','n','t','r','y',' ',
      'a','n','d',' ','R','t',' ','S','U','P','R','X',' ','f','i','l','e','.',' ', 'R','e','a','d','-','o','n','l','y','.',0};
 static void *settings_text_hook(void *arg, char **message) {
     if (message && *message) {
-        if (text_equal(*message, "rt_manager_installed")) return (void *)g_status_text;
-        if (text_equal(*message, "rt_manager_status_hint")) return (void *)RT_STATUS_HINT;
+        if (text_equal(*message, "rt_manager_installed")) return (void *)g_status_text;\n        if (text_equal(*message, "rt_plugin_audit_result")) return (void *)g_audit_text;
+        if (text_equal(*message, "rt_manager_status_hint")) return (void *)RT_STATUS_HINT;\n        if (text_equal(*message, "rt_plugin_audit_hint")) return (void *)RT_AUDIT_HINT;
     }
     return TAI_CONTINUE(void *, g_text_ref, arg, message);
 }
