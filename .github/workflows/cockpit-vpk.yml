@@ -22,6 +22,12 @@ on:
   pull_request:
     paths:
       - "cockpit/**"
+      - "include/plugin_inventory.h"
+      - "include/plugin_compatibility.h"
+      - "settings-ui/plugin_control_centre.*"
+      - "source/plugin-inventory/**"
+      - "source/plugin-compatibility/**"
+      - "native-settings/**"
       - "include/tai_saver.h"
       - "include/rt_fs.h"
       - "source/tai-saver/**"
@@ -34,18 +40,44 @@ permissions:
 
 jobs:
   build-vpk:
-    name: Build Rt Vita Cockpit + Tai Saver VPK
+    name: Build, inspect and package Rt Vita Cockpit VPK
     runs-on: ubuntu-latest
     container:
       image: vitasdk/vitasdk:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Build Cockpit with Tai Saver
+      - name: Build Cockpit and native Settings SUPRX
         run: make -C cockpit clean all
-      - name: Upload VPK
+      - name: Inspect VPK payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          VPK="cockpit/rt-vita-cockpit.vpk"
+          test -s "$VPK"
+          for entry in eboot.bin param.sfo rtsettings.suprx; do
+            unzip -Z1 "$VPK" | grep -Fx "$entry"
+          done
+          unzip -p "$VPK" rtsettings.suprx > /tmp/rtsettings.suprx
+          unzip -p "$VPK" param.sfo > /tmp/param.sfo
+          test -s /tmp/rtsettings.suprx
+          strings /tmp/param.sfo | grep -Fx "RTV000001"
+          {
+            echo "VPK: $VPK"
+            echo "Title ID: RTV000001"
+            echo "SUPRX payload bytes: $(wc -c < /tmp/rtsettings.suprx)"
+            echo "VPK SHA-256:"
+            sha256sum "$VPK"
+            echo "SUPRX SHA-256:"
+            sha256sum /tmp/rtsettings.suprx
+          } | tee cockpit/vpk-inspection.txt
+          sha256sum "$VPK" > "$VPK.sha256"
+      - name: Upload verified VPK and inspection report
         uses: actions/upload-artifact@v4
         with:
-          name: rt-vita-cockpit-tai-saver-vpk
-          path: cockpit/rt-vita-cockpit.vpk
+          name: rt-vita-cockpit-settings-audit-vpk
+          path: |
+            cockpit/rt-vita-cockpit.vpk
+            cockpit/rt-vita-cockpit.vpk.sha256
+            cockpit/vpk-inspection.txt
           if-no-files-found: error
