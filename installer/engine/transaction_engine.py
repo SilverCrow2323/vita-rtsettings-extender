@@ -123,6 +123,10 @@ class InstallerEngine:
             if not stat.S_ISREG(os.fstat(fd).st_mode):
                 raise TransactionError("installer transaction lock is not a regular file")
             try:
+                os.fchmod(fd, 0o600)
+            except OSError as exc:
+                raise TransactionError(f"cannot secure installer transaction lock: {exc}") from exc
+            try:
                 fcntl.flock(fd, fcntl.LOCK_EX)
             except OSError as exc:
                 raise TransactionError(f"cannot acquire installer transaction lock: {exc}") from exc
