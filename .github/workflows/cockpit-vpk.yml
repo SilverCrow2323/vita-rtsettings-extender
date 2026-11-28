@@ -70,35 +70,35 @@ jobs:
               sfo = archive.read("param.sfo")
               suprx = archive.read("rtsettings.suprx")
           assert eboot and suprx, "Empty EBOOT or SUPRX payload"
-          assert sfo[:4] == b"\\x00PSF", "Invalid PARAM.SFO magic"
+          assert sfo[:4] == b"\x00PSF", "Invalid PARAM.SFO magic"
           key_table, data_table, count = struct.unpack_from("<III", sfo, 8)
           title_id = None
           for index in range(count):
               key_offset, fmt, length, max_length, data_offset = struct.unpack_from(
                   "<HHIII", sfo, 0x14 + index * 16
               )
-              key = sfo[key_table + key_offset:].split(b"\\x00", 1)[0]
+              key = sfo[key_table + key_offset:].split(b"\x00", 1)[0]
               if key == b"TITLE_ID":
                   raw = sfo[data_table + data_offset:data_table + data_offset + length]
-                  title_id = raw.split(b"\\x00", 1)[0].decode("ascii")
+                  title_id = raw.split(b"\x00", 1)[0].decode("ascii")
                   break
           assert title_id == "RTV000001", f"Unexpected TITLE_ID: {title_id!r}"
           vpk_hash = hashlib.sha256(vpk.read_bytes()).hexdigest()
           suprx_hash = hashlib.sha256(suprx).hexdigest()
           report = (
-              f"VPK: {vpk}\\n"
-              f"Title ID: {title_id}\\n"
-              f"VPK bytes: {vpk.stat().st_size}\\n"
-              f"EBOOT bytes: {len(eboot)}\\n"
-              f"SUPRX bytes: {len(suprx)}\\n"
-              f"VPK SHA-256: {vpk_hash}\\n"
-              f"SUPRX SHA-256: {suprx_hash}\\n"
-              "Required entries: eboot.bin, param.sfo, rtsettings.suprx\\n"
-              "Inspection: PASS\\n"
+              f"VPK: {vpk}\n"
+              f"Title ID: {title_id}\n"
+              f"VPK bytes: {vpk.stat().st_size}\n"
+              f"EBOOT bytes: {len(eboot)}\n"
+              f"SUPRX bytes: {len(suprx)}\n"
+              f"VPK SHA-256: {vpk_hash}\n"
+              f"SUPRX SHA-256: {suprx_hash}\n"
+              "Required entries: eboot.bin, param.sfo, rtsettings.suprx\n"
+              "Inspection: PASS\n"
           )
           Path("cockpit/vpk-inspection.txt").write_text(report, encoding="utf-8")
           Path("cockpit/rt-vita-cockpit.vpk.sha256").write_text(
-              f"{vpk_hash}  rt-vita-cockpit.vpk\\n", encoding="ascii"
+              f"{vpk_hash}  rt-vita-cockpit.vpk\n", encoding="ascii"
           )
           print(report, end="")
           PY
