@@ -161,7 +161,7 @@ static size_t append_ascii(char *dst, size_t capacity, size_t used, const char *
     size_t i = 0;
     if (!dst || !src || used >= capacity) return used;
     while (src[i] && used + 1 < capacity) dst[used++] = src[i++];
-    dst[used] = '\\0';
+    dst[used] = '\0';
     return used;
 }
 static size_t append_number(char *dst, size_t capacity, size_t used, size_t value) {
@@ -169,7 +169,7 @@ static size_t append_number(char *dst, size_t capacity, size_t used, size_t valu
     size_t count = 0;
     do { digits[count++] = (char)('0' + (value % 10)); value /= 10; } while (value && count < sizeof(digits));
     while (count && used + 1 < capacity) dst[used++] = digits[--count];
-    if (capacity) dst[used < capacity ? used : capacity - 1] = '\\0';
+    if (capacity) dst[used < capacity ? used : capacity - 1] = '\0';
     return used;
 }
 static void refresh_plugin_audit(void) {
@@ -226,7 +226,7 @@ static void refresh_plugin_audit(void) {
         memcpy(g_audit_text, g_status_text, sizeof(g_audit_text));
         return;
     }
-    message[0] = '\\0';
+    message[0] = '\0';
     used = append_ascii(message, sizeof(message), used, "READ ONLY | ACTIVE ");
     used = append_number(message, sizeof(message), used, enabled_known + enabled_unknown);
     used = append_ascii(message, sizeof(message), used, " (KNOWN ");
