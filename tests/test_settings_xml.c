@@ -20,6 +20,9 @@ int main(void) {
     assert(result == RT_SETTINGS_XML_INSERTED);
     assert(length > sizeof(root_xml)-1);
     assert(strstr(output, "id=\"rt_settings_extended\"") != NULL);
+    assert(strstr(output, "rt_manager_about") != NULL);
+    assert(strstr(output, "rt_plugin_audit") != NULL);
+    assert(strstr(output, "Plugin Configuration Audit") != NULL);
     assert(strstr(output, "id=\"network_settings\"") != NULL);
     assert(strstr(output, "</system_settings>") != NULL);
     assert(output[length] == '\0');
