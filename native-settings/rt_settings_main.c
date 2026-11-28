@@ -261,13 +261,21 @@ static int plugin_functions_hook(void *a1, int a2, uint32_t *functions) {
     }
     return result;
 }
-static const unsigned short RT_AUDIT_HINT[] =\n    {'S','c','a','n','s',' ','t','a','i','H','E','N',' ','p','l','u','g','i','n',' ','e','n','t','r','i','e','s',' ','a','n','d',' ','k','n','o','w','n',' ','c','o','n','f','l','i','c','t','s','.',' ', 'R','e','a','d','-','o','n','l','y',';',' ','n','o',' ','c','o','n','f','i','g',' ','c','h','a','n','g','e','s','. ',0};\nstatic const unsigned short RT_STATUS_HINT[] =
+static const unsigned short RT_AUDIT_HINT[] = {
+    'S','c','a','n','s',' ','t','a','i','H','E','N',' ','p','l','u','g','i','n',' ',
+    'e','n','t','r','i','e','s',' ','a','n','d',' ','k','n','o','w','n',' ',
+    'c','o','n','f','l','i','c','t','s','.',' ','R','e','a','d','-','o','n','l','y','.',
+    ' ','N','o',' ','c','o','n','f','i','g',' ','c','h','a','n','g','e','s','.',0
+};
+static const unsigned short RT_STATUS_HINT[] =
     {'C','h','e','c','k','s',' ','t','h','e',' ','l','i','v','e',' ','t','a','i','H','E','N',' ','e','n','t','r','y',' ',
      'a','n','d',' ','R','t',' ','S','U','P','R','X',' ','f','i','l','e','.',' ', 'R','e','a','d','-','o','n','l','y','.',0};
 static void *settings_text_hook(void *arg, char **message) {
     if (message && *message) {
-        if (text_equal(*message, "rt_manager_installed")) return (void *)g_status_text;\n        if (text_equal(*message, "rt_plugin_audit_result")) return (void *)g_audit_text;
-        if (text_equal(*message, "rt_manager_status_hint")) return (void *)RT_STATUS_HINT;\n        if (text_equal(*message, "rt_plugin_audit_hint")) return (void *)RT_AUDIT_HINT;
+        if (text_equal(*message, "rt_manager_installed")) return (void *)g_status_text;
+        if (text_equal(*message, "rt_plugin_audit_result")) return (void *)g_audit_text;
+        if (text_equal(*message, "rt_manager_status_hint")) return (void *)RT_STATUS_HINT;
+        if (text_equal(*message, "rt_plugin_audit_hint")) return (void *)RT_AUDIT_HINT;
     }
     return TAI_CONTINUE(void *, g_text_ref, arg, message);
 }
