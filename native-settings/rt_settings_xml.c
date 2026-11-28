@@ -13,8 +13,8 @@ static const char RT_ENTRY[] =
     "<setting_list id=\"rt_settings_extended\" title=\"Rt:Settings Extended\" icon=\"tex_spanner\">"
       "<setting_list id=\"rt_preferences_settings_management\" title=\"Preferences &amp; Settings Management\" icon=\"tex_spanner\">"
         "<setting_list id=\"rt_manager\" title=\"Rt Manager\" icon=\"tex_spanner\">"
-          "<button id=\"rt_manager_about\" title=\"Rt Manager Status\" icon=\"tex_spanner\" "
-                  "hint=\"rt_manager_status_hint\" success_dialog_message=\"rt_manager_installed\"/>\n          <button id=\"rt_plugin_audit\" title=\"Plugin Configuration Audit\" icon=\"tex_spanner\" \\\n                  hint=\"rt_plugin_audit_hint\" success_dialog_message=\"rt_plugin_audit_result\"/>"
+          "<button id=\"rt_manager_about\" title=\"Rt Manager Status\" icon=\"tex_spanner\" hint=\"rt_manager_status_hint\" success_dialog_message=\"rt_manager_installed\"/>"
+          "<button id=\"rt_plugin_audit\" title=\"Plugin Configuration Audit\" icon=\"tex_spanner\" hint=\"rt_plugin_audit_hint\" success_dialog_message=\"rt_plugin_audit_result\"/>"
         "</setting_list>"
       "</setting_list>"
     "</setting_list>";
