@@ -236,5 +236,26 @@ class InstallerTransactionTests(unittest.TestCase):
             engine.apply(plan)
 
 
+
+    def test_existing_transaction_lock_is_restricted_to_owner_only(self):
+        engine = InstallerEngine(self.root)
+        lock_path = self.root / ".rtse/installer.lock"
+        lock_path.write_bytes(b"")
+        lock_path.chmod(0o644)
+
+        with engine._exclusive_lock():
+            self.assertEqual(lock_path.stat().st_mode & 0o777, 0o600)
+
+    def test_transaction_lock_is_released_when_operation_raises(self):
+        engine = InstallerEngine(self.root)
+        with self.assertRaisesRegex(RuntimeError, "injected failure"):
+            with engine._exclusive_lock():
+                raise RuntimeError("injected failure")
+
+        # A second acquisition in the same process must not remain blocked.
+        with engine._exclusive_lock():
+            self.assertTrue((self.root / ".rtse/installer.lock").is_file())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
