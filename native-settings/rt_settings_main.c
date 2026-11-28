@@ -249,6 +249,10 @@ static int rt_settings_button(const char *id, int a2, void *a3) {
         refresh_runtime_status();
         return 0;
     }
+    if (text_equal(id, "rt_plugin_audit")) {
+        refresh_plugin_audit();
+        return 0;
+    }
     return g_system_settings_button ? g_system_settings_button(id, a2, a3) : 0;
 }
 static int plugin_functions_hook(void *a1, int a2, uint32_t *functions) {
