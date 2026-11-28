@@ -63,11 +63,13 @@ jobs:
           assert vpk.is_file() and vpk.stat().st_size > 0, "VPK missing or empty"
           with zipfile.ZipFile(vpk) as archive:
               names = set(archive.namelist())
-              required = {"eboot.bin", "param.sfo", "rtsettings.suprx"}
+              required = {"eboot.bin", "rtsettings.suprx"}
               missing = required - names
               assert not missing, f"Missing VPK entries: {sorted(missing)}"
+              sfo_name = "sce_sys/param.sfo" if "sce_sys/param.sfo" in names else "param.sfo"
+              assert sfo_name in names, "Missing PARAM.SFO in VPK root or sce_sys/"
               eboot = archive.read("eboot.bin")
-              sfo = archive.read("param.sfo")
+              sfo = archive.read(sfo_name)
               suprx = archive.read("rtsettings.suprx")
           assert eboot and suprx, "Empty EBOOT or SUPRX payload"
           assert sfo[:4] == b"\x00PSF", "Invalid PARAM.SFO magic"
@@ -93,7 +95,8 @@ jobs:
               f"SUPRX bytes: {len(suprx)}\n"
               f"VPK SHA-256: {vpk_hash}\n"
               f"SUPRX SHA-256: {suprx_hash}\n"
-              "Required entries: eboot.bin, param.sfo, rtsettings.suprx\n"
+              f"PARAM.SFO path: {sfo_name}\n"
+              "Required entries: eboot.bin, PARAM.SFO, rtsettings.suprx\n"
               "Inspection: PASS\n"
           )
           Path("cockpit/vpk-inspection.txt").write_text(report, encoding="utf-8")
